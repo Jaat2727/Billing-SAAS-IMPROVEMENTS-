@@ -12,6 +12,7 @@ DARK_THEME = {
     "border_main": "#3a3c40",
     "border_focus": "#7aa5f0",
     "accent_primary": "#7aa5f0",
+    "accent_primary_hover": "#8ab4f8",
     "accent_hover": "#8ab4f8",
     "accent_danger": "#e57373",
     "accent_danger_hover": "#ef9a9a",
