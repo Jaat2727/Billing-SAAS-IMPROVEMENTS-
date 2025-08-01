@@ -50,7 +50,7 @@ class UIManager:
 
         widget.setProperty("checkbox", checkbox)
         # Make the row double thick for better visibility
-        widget.setMinimumHeight(60)
+        widget.setMinimumHeight(48)
         return widget
 
     def create_product_table_row(self, row_pos, product, edit_callback, delete_callback):
@@ -79,4 +79,4 @@ class UIManager:
         actions_btn.setMenu(menu)
         self.parent.product_table.setCellWidget(row_pos, 3, actions_btn)
         # Make the row double thick for better visibility
-        self.parent.product_table.setRowHeight(row_pos, 60)
+        self.parent.product_table.setRowHeight(row_pos, 48)

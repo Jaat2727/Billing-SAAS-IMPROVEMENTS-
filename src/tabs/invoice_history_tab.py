@@ -1,5 +1,8 @@
+import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
                              QHeaderView, QPushButton, QHBoxLayout, QComboBox, QMessageBox, QLabel)
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt
 from src.utils.database import SessionLocal
 from src.models import Invoice, UserSettings
 from src.utils.theme import DARK_THEME
@@ -11,112 +14,150 @@ class InvoiceHistoryTab(BaseTab):
     def __init__(self):
         super().__init__()
         self.db_session = self.get_db_session()
+        self.resource_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..', 'resources')
         self.init_ui()
         self.load_invoices()
         self.apply_styles()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(25, 25, 25, 25)
+        main_layout.setSpacing(20)
 
-        # Top controls: navigation, sorting, and refresh
+        # Top controls: sorting, and refresh
         controls_layout = QHBoxLayout()
+        controls_layout.setSpacing(10)
+
         self.sort_combo = QComboBox()
+        self.sort_combo.setObjectName("sort-combo")
         self.sort_combo.addItems(["Newest First", "Oldest First", "Paid", "Pending", "Overdue"])
         self.sort_combo.currentIndexChanged.connect(self.load_invoices)
+
         refresh_btn = QPushButton("Refresh")
+        refresh_btn.setObjectName("header-button")
         refresh_btn.clicked.connect(self.handle_refresh)
-        # Navigation buttons
-        nav_prev_btn = QPushButton("← Prev")
-        nav_next_btn = QPushButton("Next →")
-        nav_prev_btn.clicked.connect(self.goto_prev_page)
-        nav_next_btn.clicked.connect(self.goto_next_page)
-        controls_layout.addWidget(nav_prev_btn)
-        controls_layout.addWidget(nav_next_btn)
-        controls_layout.addStretch()
+
         controls_layout.addWidget(QLabel("Sort by:"))
         controls_layout.addWidget(self.sort_combo)
+        controls_layout.addStretch()
         controls_layout.addWidget(refresh_btn)
         main_layout.addLayout(controls_layout)
 
         self.invoice_table = QTableWidget()
+        self.invoice_table.setObjectName("invoice-table")
         self.invoice_table.setColumnCount(6)
         self.invoice_table.setHorizontalHeaderLabels(["Invoice #", "Company", "Date", "Total", "Status", "Actions"])
         self.invoice_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.invoice_table.setColumnWidth(5, 240)  # Double the default width for Actions
+        self.invoice_table.setColumnWidth(5, 120)
         self.invoice_table.setSortingEnabled(True)
         self.invoice_table.horizontalHeader().sectionClicked.connect(self.handle_header_sort)
+        self.invoice_table.setAlternatingRowColors(True)
         main_layout.addWidget(self.invoice_table)
+
+        # Pagination controls
+        pagination_layout = QHBoxLayout()
+        pagination_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.nav_prev_btn = QPushButton("← Prev")
+        self.nav_next_btn = QPushButton("Next →")
+        self.nav_prev_btn.setObjectName("pagination-button")
+        self.nav_next_btn.setObjectName("pagination-button")
+        self.nav_prev_btn.clicked.connect(self.goto_prev_page)
+        self.nav_next_btn.clicked.connect(self.goto_next_page)
+        self.page_label = QLabel("Page 1")
+        self.page_label.setObjectName("page-label")
+        pagination_layout.addWidget(self.nav_prev_btn)
+        pagination_layout.addWidget(self.page_label)
+        pagination_layout.addWidget(self.nav_next_btn)
+        main_layout.addLayout(pagination_layout)
 
         # For navigation (pagination)
         self.current_page = 0
-        self.page_size = 20
+        self.page_size = 15
 
-    def load_invoices(self):
-        self.invoice_table.setRowCount(0)
-        sort_option = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Newest First"
+    def _build_invoice_query(self):
+        sort_option = self.sort_combo.currentText()
         query = self.db_session.query(Invoice)
+
         if sort_option == "Newest First":
             query = query.order_by(Invoice.date.desc())
         elif sort_option == "Oldest First":
             query = query.order_by(Invoice.date.asc())
-        elif sort_option == "Paid":
-            query = query.filter(Invoice.payment_status == "Paid").order_by(Invoice.date.desc())
-        elif sort_option == "Pending":
-            query = query.filter(Invoice.payment_status == "Pending").order_by(Invoice.date.desc())
-        elif sort_option == "Overdue":
-            query = query.filter(Invoice.payment_status == "Overdue").order_by(Invoice.date.desc())
-        invoices = query.all()
+        elif sort_option in ["Paid", "Pending", "Overdue"]:
+            query = query.filter(Invoice.payment_status == sort_option).order_by(Invoice.date.desc())
+
+        return query
+
+    def load_invoices(self):
+        self.invoice_table.setRowCount(0)
+        query = self._build_invoice_query()
+
+        total_invoices = query.count()
+        self.total_pages = (total_invoices + self.page_size - 1) // self.page_size
 
         # Pagination
-        start = self.current_page * self.page_size
-        end = start + self.page_size
-        paged_invoices = invoices[start:end]
+        offset = self.current_page * self.page_size
+        paged_invoices = query.offset(offset).limit(self.page_size).all()
 
         for inv in paged_invoices:
             row = self.invoice_table.rowCount()
             self.invoice_table.insertRow(row)
+
             self.invoice_table.setItem(row, 0, QTableWidgetItem(inv.invoice_number))
             self.invoice_table.setItem(row, 1, QTableWidgetItem(inv.customer.name))
-            self.invoice_table.setItem(row, 2, QTableWidgetItem(inv.date.strftime("%Y-%m-%d")))
+            self.invoice_table.setItem(row, 2, QTableWidgetItem(inv.date.strftime("%b %d, %Y")))
             self.invoice_table.setItem(row, 3, QTableWidgetItem(f"₹{inv.total_amount:,.2f}"))
 
-            # Status with improved color plate
-            status_combo = QComboBox()
-            status_combo.addItems(["Pending", "Paid", "Overdue"])
-            status_combo.setCurrentText(inv.payment_status)
-            color_map = {
-                "Paid": "background-color: #43a047; color: #fff; border: 2px solid #388e3c; font-weight: bold;",
-                "Pending": "background-color: #fbc02d; color: #222; border: 2px solid #fbc02d; font-weight: bold;",
-                "Overdue": "background-color: #e53935; color: #fff; border: 2px solid #b71c1c; font-weight: bold;"
-            }
-            status_style = color_map.get(inv.payment_status, color_map["Pending"])
-            status_combo.setStyleSheet(f"QComboBox {{{status_style} border-radius: 6px; padding: 6px 12px;}}")
-            self.invoice_table.setCellWidget(row, 4, status_combo)
+            # Status Indicator
+            status_widget = self.create_status_widget(inv.payment_status)
+            self.invoice_table.setCellWidget(row, 4, status_widget)
 
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            download_btn = QPushButton("Download PDF")
-            download_btn.clicked.connect(lambda chk, inv=inv: self.redownload_invoice(inv))
-            share_btn = QPushButton("Share")
-            share_btn.clicked.connect(lambda chk, inv=inv: self.share_invoice(inv))
-            actions_layout.addWidget(download_btn)
-            actions_layout.addWidget(share_btn)
-            actions_layout.setContentsMargins(0,0,0,0)
+            # Action Buttons
+            actions_widget = self.create_action_buttons(inv)
             self.invoice_table.setCellWidget(row, 5, actions_widget)
-            # Make the row double thick for better visibility
-            self.invoice_table.setRowHeight(row, 60)
+
+            self.invoice_table.setRowHeight(row, 48)
+
+        self.update_pagination_controls()
+
+    def create_status_widget(self, status):
+        status_label = QLabel(status)
+        status_label.setObjectName("status-label")
+        status_label.setProperty("status", status.lower())
+        status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        return status_label
+
+    def create_action_buttons(self, invoice):
+        actions_widget = QWidget()
+        actions_layout = QHBoxLayout(actions_widget)
+        actions_layout.setContentsMargins(0,0,0,0)
+        actions_layout.setSpacing(10)
+        actions_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        download_btn = QPushButton("↓")
+        download_btn.setObjectName("action-button")
+        download_btn.setToolTip("Download PDF")
+        download_btn.clicked.connect(lambda chk, inv=invoice: self.redownload_invoice(inv))
+
+        share_btn = QPushButton("✉")
+        share_btn.setObjectName("action-button")
+        share_btn.setToolTip("Share Invoice")
+        share_btn.clicked.connect(lambda chk, inv=invoice: self.share_invoice(inv))
+
+        actions_layout.addWidget(download_btn)
+        actions_layout.addWidget(share_btn)
+        return actions_widget
 
     def handle_refresh(self):
-        # Fully reloads the table and updates all colors/styles
-        self.db_session.close()
-        self.db_session = self.get_db_session()
+        self.current_page = 0
         self.load_invoices()
 
     def handle_header_sort(self, logicalIndex):
-        # Sorts by column when header is clicked
         self.invoice_table.sortItems(logicalIndex, order=self.invoice_table.horizontalHeader().sortIndicatorOrder())
+
+    def update_pagination_controls(self):
+        self.page_label.setText(f"Page {self.current_page + 1} of {self.total_pages}")
+        self.nav_prev_btn.setEnabled(self.current_page > 0)
+        self.nav_next_btn.setEnabled(self.current_page < self.total_pages - 1)
 
     def goto_prev_page(self):
         if self.current_page > 0:
@@ -124,45 +165,12 @@ class InvoiceHistoryTab(BaseTab):
             self.load_invoices()
 
     def goto_next_page(self):
-        # Only go to next page if there are more invoices
-        sort_option = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Newest First"
-        query = self.db_session.query(Invoice)
-        if sort_option == "Newest First":
-            query = query.order_by(Invoice.date.desc())
-        elif sort_option == "Oldest First":
-            query = query.order_by(Invoice.date.asc())
-        elif sort_option == "Paid":
-            query = query.filter(Invoice.payment_status == "Paid").order_by(Invoice.date.desc())
-        elif sort_option == "Pending":
-            query = query.filter(Invoice.payment_status == "Pending").order_by(Invoice.date.desc())
-        elif sort_option == "Overdue":
-            query = query.filter(Invoice.payment_status == "Overdue").order_by(Invoice.date.desc())
-        invoices = query.all()
-        max_page = (len(invoices) - 1) // self.page_size
-        if self.current_page < max_page:
+        if self.current_page < self.total_pages - 1:
             self.current_page += 1
             self.load_invoices()
 
-    def redownload_invoice(self, invoice):
-        import os
-        from PyQt6.QtWidgets import QFileDialog
-        from PyQt6.QtGui import QDesktopServices
-        from PyQt6.QtCore import QUrl
-
-        settings = self.db_session.query(UserSettings).first()
-        if not settings:
-            QMessageBox.critical(self, "Error", "Please configure your company settings first.")
-            return
-
-        items = []
-        for item in invoice.items:
-            items.append({
-                "product_name": item.product_name,
-                "quantity": item.quantity,
-                "price_per_unit": item.price_per_unit
-            })
-
-        invoice_data = {
+    def _get_invoice_data(self, invoice):
+        return {
             "invoice_number": invoice.invoice_number,
             "date": invoice.date.strftime("%Y-%m-%d"),
             "vehicle_number": invoice.vehicle_number,
@@ -172,47 +180,53 @@ class InvoiceHistoryTab(BaseTab):
                 "gstin": invoice.customer.gstin,
                 "state_code": invoice.customer.state_code
             },
-            "items": items
+            "items": [{
+                "product_name": item.product_name,
+                "quantity": item.quantity,
+                "price_per_unit": item.price_per_unit
+            } for item in invoice.items]
         }
 
+    def _handle_pdf_generation(self, invoice, action='download'):
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtCore import QUrl
+
+        settings = self.db_session.query(UserSettings).first()
+        if not settings:
+            QMessageBox.critical(self, "Error", "Please configure your company settings first.")
+            return
+
+        invoice_data = self._get_invoice_data(invoice)
+
         pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../pdf'))
-        if not os.path.exists(pdf_dir):
-            os.makedirs(pdf_dir)
+        os.makedirs(pdf_dir, exist_ok=True)
         file_name = f"invoice_{invoice.invoice_number}.pdf"
         file_path = os.path.join(pdf_dir, file_name)
 
+        should_generate = True
         if os.path.exists(file_path):
             msg = QMessageBox(self)
             msg.setWindowTitle("PDF Exists")
-            msg.setText(f"A PDF for this invoice already exists. What would you like to do?")
-            open_btn = msg.addButton("Open Folder", QMessageBox.ButtonRole.AcceptRole)
+            msg.setText("A PDF for this invoice already exists. What would you like to do?")
+            open_btn_text = "Open PDF" if action == 'share' else "Open Folder"
+            open_btn = msg.addButton(open_btn_text, QMessageBox.ButtonRole.AcceptRole)
             overwrite_btn = msg.addButton("Overwrite PDF", QMessageBox.ButtonRole.DestructiveRole)
             cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
             msg.setIcon(QMessageBox.Icon.Question)
             msg.exec()
-            if msg.clickedButton() == open_btn:
-                QDesktopServices.openUrl(QUrl.fromLocalFile(pdf_dir))
-                return
-            elif msg.clickedButton() == cancel_btn:
-                return
-            # else: overwrite
 
-        # Generate and save PDF in pdf/ folder
-        pdf_service = PdfService(settings)
-        # Patch PdfService to allow custom path
-        if hasattr(pdf_service, 'generate_invoice'):
-            try:
-                pdf_service.generate_invoice(invoice_data, file_path=file_path)
-            except TypeError:
-                # fallback for old signature
-                generated = pdf_service.generate_invoice(invoice_data)
-                # Move to pdf_dir if not already there
-                if os.path.abspath(generated) != os.path.abspath(file_path):
-                    import shutil
-                    shutil.move(generated, file_path)
-        else:
-            QMessageBox.critical(self, "Error", "PDF generation service is not available.")
+            if msg.clickedButton() == open_btn:
+                url = QUrl.fromLocalFile(file_path if action == 'share' else pdf_dir)
+                QDesktopServices.openUrl(url)
+                should_generate = False
+            elif msg.clickedButton() == cancel_btn:
+                should_generate = False
+
+        if not should_generate:
             return
+
+        pdf_service = PdfService(settings)
+        pdf_service.generate_invoice(invoice_data, file_path=file_path)
 
         msg = QMessageBox(self)
         msg.setWindowTitle("PDF Saved")
@@ -227,89 +241,85 @@ class InvoiceHistoryTab(BaseTab):
         elif msg.clickedButton() == open_pdf_btn:
             QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
 
+    def redownload_invoice(self, invoice):
+        self._handle_pdf_generation(invoice, action='download')
+
     def share_invoice(self, invoice):
-        import os
-        from PyQt6.QtWidgets import QMessageBox
-        from PyQt6.QtGui import QDesktopServices
-        from PyQt6.QtCore import QUrl
-
-        settings = self.db_session.query(UserSettings).first()
-        if not settings:
-            QMessageBox.critical(self, "Error", "Please configure your company settings first.")
-            return
-
-        items = []
-        for item in invoice.items:
-            items.append({
-                "product_name": item.product_name,
-                "quantity": item.quantity,
-                "price_per_unit": item.price_per_unit
-            })
-
-        invoice_data = {
-            "invoice_number": invoice.invoice_number,
-            "date": invoice.date.strftime("%Y-%m-%d"),
-            "vehicle_number": invoice.vehicle_number,
-            "customer": {
-                "name": invoice.customer.name,
-                "address": invoice.customer.address,
-                "gstin": invoice.customer.gstin,
-                "state_code": invoice.customer.state_code
-            },
-            "items": items
-        }
-
-        pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../pdf'))
-        if not os.path.exists(pdf_dir):
-            os.makedirs(pdf_dir)
-        file_name = f"invoice_{invoice.invoice_number}.pdf"
-        file_path = os.path.join(pdf_dir, file_name)
-
-        if os.path.exists(file_path):
-            msg = QMessageBox(self)
-            msg.setWindowTitle("PDF Exists")
-            msg.setText(f"A PDF for this invoice already exists. What would you like to do?")
-            open_btn = msg.addButton("Open PDF", QMessageBox.ButtonRole.AcceptRole)
-            overwrite_btn = msg.addButton("Overwrite PDF", QMessageBox.ButtonRole.DestructiveRole)
-            cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-            msg.setIcon(QMessageBox.Icon.Question)
-            msg.exec()
-            if msg.clickedButton() == open_btn:
-                QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
-                return
-            elif msg.clickedButton() == cancel_btn:
-                return
-            # else: overwrite
-
-        pdf_service = PdfService(settings)
-        pdf_service.generate_invoice(invoice_data, file_path=file_path)
-        msg = QMessageBox(self)
-        msg.setWindowTitle("PDF Saved")
-        msg.setText(f"Invoice PDF generated and saved as {file_path}\n\nWould you like to open the PDF folder?")
-        open_btn = msg.addButton("Open Folder", QMessageBox.ButtonRole.AcceptRole)
-        close_btn = msg.addButton("Close", QMessageBox.ButtonRole.RejectRole)
-        msg.setIcon(QMessageBox.Icon.Information)
-        msg.exec()
-        if msg.clickedButton() == open_btn:
-            QDesktopServices.openUrl(QUrl.fromLocalFile(pdf_dir))
+        self._handle_pdf_generation(invoice, action='share')
 
 
     def apply_styles(self):
         self.setStyleSheet(f"""
-            QTableWidget {{
+            #invoice-table {{
                 background-color: {DARK_THEME['bg_surface']};
                 gridline-color: {DARK_THEME['border_main']};
                 border: 1px solid {DARK_THEME['border_main']};
                 border-radius: 8px;
+                alternate-background-color: {DARK_THEME['bg_sidebar']};
             }}
-            QHeaderView::section {{
+            #invoice-table QHeaderView::section {{
                 background-color: {DARK_THEME['bg_sidebar']};
                 color: {DARK_THEME['text_secondary']};
-                padding: 10px;
+                padding: 12px;
                 border: none;
+                font-weight: 600;
             }}
-            QTableWidget::item {{
+            #invoice-table::item {{
                 padding: 10px;
                 color: {DARK_THEME['text_primary']};
+                border-bottom: 1px solid {DARK_THEME['border_main']};
+            }}
+            #invoice-table::item:selected {{
+                background-color: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['text_on_accent']};
+            }}
+            #status-label {{
+                color: #000;
+                font-weight: 600;
+                padding: 5px 10px;
+                border-radius: 5px;
+            }}
+            #status-label[status="paid"] {{
+                background-color: #4CAF50; /* Green */
+            }}
+            #status-label[status="pending"] {{
+                background-color: #FFC107; /* Amber */
+            }}
+            #status-label[status="overdue"] {{
+                background-color: #F44336; /* Red */
+            }}
+            #action-button {{
+                background-color: transparent;
+                border: none;
+                color: {DARK_THEME['text_secondary']};
+                font-size: 18px;
+                padding: 5px;
+            }}
+            #action-button:hover {{
+                color: {DARK_THEME['accent_primary']};
+            }}
+            #pagination-button {{
+                background-color: {DARK_THEME['bg_surface']};
+                color: {DARK_THEME['text_secondary']};
+                border: 1px solid {DARK_THEME['border_main']};
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-weight: 600;
+            }}
+            #pagination-button:hover {{
+                border-color: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['accent_primary']};
+            }}
+            #pagination-button:disabled {{
+                color: #555;
+                border-color: #444;
+            }}
+            #page-label {{
+                color: {DARK_THEME['text_secondary']};
+                font-weight: 600;
+                padding: 0 10px;
+            }}
+            #sort-combo {{
+                min-width: 150px;
             }}
         """)

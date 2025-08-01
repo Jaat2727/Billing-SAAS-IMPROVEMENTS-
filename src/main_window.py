@@ -152,36 +152,83 @@ class SaaSBillingApp(QMainWindow):
 
     def apply_styles(self):
         self.setStyleSheet(f"""
-            QMainWindow {{ background-color: {DARK_THEME['bg_main']}; font-family: Roboto; }}
-            #nav-sidebar {{ background-color: {DARK_THEME['bg_sidebar']}; border:none; }}
-            #sidebar-title {{ font-size: 18px; font-weight: 600; color: {DARK_THEME['text_primary']}; }}
-            #sidebar-subtitle {{ font-size: 12px; color: {DARK_THEME['text_secondary']}; }}
-            
-            #nav-sidebar QPushButton {{
-                color: {DARK_THEME['text_secondary']}; border: none; text-align: left;
-                padding: 10px 15px; border-radius: 6px; font-weight: 500; font-size: 14px;
+            QMainWindow {{
+                background-color: {DARK_THEME['bg_main']};
+                font-family: Roboto;
+                font-size: 14px;
             }}
-            #nav-sidebar QPushButton:hover {{ background-color: {DARK_THEME['bg_hover']}; }}
+            #nav-sidebar {{
+                background-color: {DARK_THEME['bg_sidebar']};
+                border: none;
+            }}
+            #sidebar-title {{
+                font-size: 20px;
+                font-weight: 600;
+                color: {DARK_THEME['text_primary']};
+            }}
+            #sidebar-subtitle {{
+                font-size: 13px;
+                color: {DARK_THEME['text_secondary']};
+            }}
+            #nav-sidebar QPushButton {{
+                color: {DARK_THEME['text_secondary']};
+                border: none;
+                text-align: left;
+                padding: 12px 18px;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: 15px;
+            }}
+            #nav-sidebar QPushButton:hover {{
+                background-color: {DARK_THEME['bg_hover']};
+            }}
             #nav-sidebar QPushButton:checked {{
-                background-color: {DARK_THEME['bg_surface']};
-                color: {DARK_THEME['accent_primary']};
+                background-color: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['text_on_accent']};
                 font-weight: 600;
             }}
-            
-            #top-header {{ background-color: {DARK_THEME['bg_surface']}; border-bottom: 1px solid {DARK_THEME['border_main']}; }}
-            #header-title {{ font-size: 20px; font-weight: 600; color: {DARK_THEME['text_primary']}; }}
-            #header-subtitle {{ font-size: 13px; color: {DARK_THEME['text_secondary']}; }}
-            
-            #header-button {{
-                background-color: transparent; color: {DARK_THEME['text_secondary']};
+            #top-header {{
+                background-color: {DARK_THEME['bg_surface']};
+                border-bottom: 1px solid {DARK_THEME['border_main']};
+            }}
+            #header-title {{
+                font-size: 22px;
+                font-weight: 600;
+                color: {DARK_THEME['text_primary']};
+            }}
+            #header-subtitle {{
+                font-size: 14px;
+                color: {DARK_THEME['text_secondary']};
+            }}
+            #header-button, #header-button-danger {{
+                background-color: transparent;
+                color: {DARK_THEME['text_secondary']};
                 border: 1px solid {DARK_THEME['border_main']};
-                padding: 8px 16px; border-radius: 6px; font-weight: 500;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: 600;
             }}
-            #header-button:hover {{ border-color: {DARK_THEME['accent_primary']}; color: {DARK_THEME['accent_primary']}; }}
-            
+            #header-button:hover {{
+                border-color: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['accent_primary']};
+            }}
+            #header-button-danger {{
+                color: {DARK_THEME['accent_danger']};
+                border-color: {DARK_THEME['accent_danger']};
+            }}
+            #header-button-danger:hover {{
+                background-color: {DARK_THEME['accent_danger']};
+                color: {DARK_THEME['text_on_accent']};
+            }}
             #primary-header-button {{
-                background-color: {DARK_THEME['accent_primary']}; color: {DARK_THEME['text_on_accent']};
-                border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600;
+                background-color: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['text_on_accent']};
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: 600;
             }}
-            #primary-header-button:hover {{ background-color: {DARK_THEME['accent_hover']}; }}
+            #primary-header-button:hover {{
+                background-color: {DARK_THEME['accent_hover']};
+            }}
         """)
