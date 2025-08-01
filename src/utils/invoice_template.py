@@ -104,6 +104,14 @@ class InvoiceTemplate:
         if invoice_data.get('vehicle_number'):
             self.c.drawRightString(self.width - 0.5*inch, self.height - 1.3*inch, f"Vehicle: {invoice_data['vehicle_number']}")
 
+        # Payment Status
+        status = invoice_data.get('payment_status', 'Pending').upper()
+        status_color = self.get_status_color(status)
+        self.c.setFont(self.font_name_bold, 12)
+        self.c.setFillColor(status_color)
+        self.c.drawRightString(self.width - 0.5*inch, self.height - 0.4*inch, status)
+
+
         self.c.restoreState()
 
     def draw_customer_info(self, invoice_data):
@@ -128,6 +136,16 @@ class InvoiceTemplate:
         customer_text.drawOn(self.c, 0.5*inch, y_pos - 0.2*inch - customer_text.height)
 
         self.c.restoreState()
+
+    def get_status_color(self, status):
+        if status == 'PAID':
+            return colors.HexColor('#4CAF50') # Green
+        elif status == 'PENDING':
+            return colors.HexColor('#FFC107') # Amber
+        elif status == 'OVERDUE':
+            return colors.HexColor('#F44336') # Red
+        else:
+            return self.text_color
 
     def draw_items_table(self, invoice_data):
         header_style = ParagraphStyle(name='Header', fontName=self.font_name_bold, fontSize=9, textColor=self.light_text_color, alignment=TA_CENTER)

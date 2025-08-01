@@ -10,6 +10,7 @@ from src.models import CustomerCompany, Product, Invoice, InvoiceItem, UserSetti
 from src.utils.theme import DARK_THEME
 from src.utils.pdf_service import PdfService
 from src.utils.invoice_number_service import InvoiceNumberService
+from src.utils.helpers import log_action
 
 from src.tabs.base_tab import BaseTab
 
@@ -280,6 +281,7 @@ class CreateInvoiceTab(BaseTab):
             "vehicle_number": self.vehicle_no_input.text(),
             "date": self.invoice_date_edit.date().toPyDate(),
             "total_amount": total_amount,
+            "payment_status": "Pending",
             "items": items,
             "customer": {
                 "name": customer.name,
@@ -348,15 +350,22 @@ class CreateInvoiceTab(BaseTab):
                 if product.inventory.stock_quantity < item['quantity']:
                     QMessageBox.critical(self, "Error", f"Insufficient stock for {product.name}.")
                     return None
+                old_stock = product.inventory.stock_quantity
                 product.inventory.stock_quantity -= item['quantity']
+                new_stock = product.inventory.stock_quantity
+
+                details = f"Stock for '{product.name}' deducted by {item['quantity']} for invoice {invoice_number}. Old: {old_stock}, New: {new_stock}."
+
                 history_entry = InventoryHistory(
                     product_id=product.id,
                     change_quantity=-item['quantity'],
-                    new_stock=product.inventory.stock_quantity,
-                    reason=f"Invoice {invoice_number}",
+                    new_stock=new_stock,
+                    reason=f"Invoice {invoice_number} generated",
                     user_id=user_id
                 )
                 self.db_session.add(history_entry)
+
+                log_action(self.db_session, "STOCK_DEDUCTION", "Product", product.id, details)
 
             new_item = InvoiceItem(
                 invoice_id=new_invoice.id,

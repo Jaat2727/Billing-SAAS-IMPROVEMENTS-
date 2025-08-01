@@ -212,6 +212,7 @@ class InvoiceHistoryTab(BaseTab):
             "invoice_number": invoice.invoice_number,
             "date": invoice.date.strftime("%Y-%m-%d"),
             "vehicle_number": invoice.vehicle_number,
+            "payment_status": invoice.payment_status,
             "customer": {
                 "name": invoice.customer.name,
                 "address": invoice.customer.address,

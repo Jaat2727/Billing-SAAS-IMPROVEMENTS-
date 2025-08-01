@@ -67,12 +67,13 @@ class InventoryTab(BaseTab):
         controls_layout.addWidget(refresh_btn)
 
         self.inventory_table = QTableWidget()
-        self.inventory_table.setColumnCount(6)
-        self.inventory_table.setHorizontalHeaderLabels(["Product Name", "Company", "Current Stock", "Price", "Stock Change History", "Actions"])
-        self.inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.inventory_table.setColumnCount(7)
+        self.inventory_table.setHorizontalHeaderLabels(["S.No.", "Product Name", "Company", "Current Stock", "Price", "Stock Change History", "Actions"])
         self.inventory_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.inventory_table.setColumnWidth(4, 260)  # Wider History column
-        self.inventory_table.setColumnWidth(5, 220)  # Actions
+        self.inventory_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.inventory_table.setColumnWidth(0, 50)
+        self.inventory_table.setColumnWidth(5, 260)  # Wider History column
+        self.inventory_table.setColumnWidth(6, 220)  # Actions
         self.inventory_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.inventory_table.setSortingEnabled(True)
         self.inventory_table.horizontalHeader().sectionClicked.connect(self.handle_header_sort)
@@ -128,11 +129,16 @@ class InventoryTab(BaseTab):
         self.low_stock_card.findChild(QLabel, "stat-value").setText(str(low_stock_count))
         self.out_of_stock_card.findChild(QLabel, "stat-value").setText(str(out_of_stock_count))
 
-        for product in paged_products:
+        for i, product in enumerate(paged_products):
             row = self.inventory_table.rowCount()
             self.inventory_table.insertRow(row)
-            self.inventory_table.setItem(row, 0, QTableWidgetItem(product.name))
-            self.inventory_table.setItem(row, 1, QTableWidgetItem(product.company.name))
+
+            s_no_item = QTableWidgetItem(str(start + i + 1))
+            s_no_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.inventory_table.setItem(row, 0, s_no_item)
+
+            self.inventory_table.setItem(row, 1, QTableWidgetItem(product.name))
+            self.inventory_table.setItem(row, 2, QTableWidgetItem(product.company.name))
             stock_value = product.inventory.stock_quantity if product.inventory else 0
             stock_item = QTableWidgetItem(str(stock_value))
             stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -144,9 +150,9 @@ class InventoryTab(BaseTab):
                     stock_item.setBackground(Qt.GlobalColor.yellow)
                 else:
                     stock_item.setBackground(Qt.GlobalColor.green)
-            self.inventory_table.setItem(row, 2, stock_item)
+            self.inventory_table.setItem(row, 3, stock_item)
             price_item = QTableWidgetItem(f"₹{product.price:,.2f}")
-            self.inventory_table.setItem(row, 3, price_item)
+            self.inventory_table.setItem(row, 4, price_item)
             # --- History button, centered and full label ---
             history_widget = QWidget()
             history_layout = QHBoxLayout(history_widget)
@@ -157,7 +163,7 @@ class InventoryTab(BaseTab):
             history_btn.setMinimumWidth(160)
             history_btn.clicked.connect(lambda chk, p=product: self.show_history_modal(p))
             history_layout.addWidget(history_btn)
-            self.inventory_table.setCellWidget(row, 4, history_widget)
+            self.inventory_table.setCellWidget(row, 5, history_widget)
             # --- Improved Actions button ---
             action_widget = QWidget()
             action_layout = QHBoxLayout(action_widget)
@@ -169,7 +175,7 @@ class InventoryTab(BaseTab):
             adjust_btn.setMinimumWidth(120)
             adjust_btn.clicked.connect(lambda chk, p=product: self.show_adjust_stock_dialog(p))
             action_layout.addWidget(adjust_btn)
-            self.inventory_table.setCellWidget(row, 5, action_widget)
+            self.inventory_table.setCellWidget(row, 6, action_widget)
             # Make the row double thick for better visibility
             self.inventory_table.setRowHeight(row, 60)
 

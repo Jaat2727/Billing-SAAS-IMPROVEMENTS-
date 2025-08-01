@@ -87,45 +87,34 @@ class CompaniesProductsTab(BaseTab):
     def create_panel_header(self, title_text, add_callback, delete_callback, vertical=False):
         header = QFrame()
         header.setObjectName("panel-header")
+
+        layout = QVBoxLayout(header) if vertical else QHBoxLayout(header)
+        layout.setContentsMargins(15, 8, 15, 8)
+        layout.setSpacing(12 if not vertical else 6)
+
+        title = QLabel(title_text)
+        title.setObjectName("panel-title")
+
+        add_btn = QPushButton(f"+ Add {title_text.split(' ')[0]}")
+        add_btn.setObjectName("add-button")
+        add_btn.setToolTip(f"Add a new {title_text.split(' ')[0].lower()}")
+        add_btn.clicked.connect(add_callback)
+
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.setObjectName("destructive-button")
+        delete_btn.setEnabled(False)
+        delete_btn.clicked.connect(delete_callback)
+
         if vertical:
-            layout = QVBoxLayout(header)
-            layout.setContentsMargins(15, 8, 15, 8)
-            layout.setSpacing(6)
-            title = QLabel(title_text)
-            title.setStyleSheet("font-size: 18px; font-weight: 600; color: #fff;")
             layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignLeft)
-            add_btn = QPushButton("+ Add Company")
-            add_btn.setObjectName("add-button")
-            add_btn.setToolTip("Add a new company")
-            add_btn.clicked.connect(add_callback)
-            add_btn.setStyleSheet("font-size: 15px; font-weight: 500; padding: 8px 0; border-radius: 6px; background: #1976d2; color: #fff; min-width: 160px;")
             layout.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignLeft)
-            delete_btn = QPushButton("Delete Selected")
-            delete_btn.setObjectName("destructive-button")
-            delete_btn.setEnabled(False)
-            delete_btn.clicked.connect(delete_callback)
-            delete_btn.setStyleSheet("font-size: 15px; font-weight: 500; padding: 8px 0; border-radius: 6px; border: 1px solid #d32f2f; color: #d32f2f; background: transparent; min-width: 160px;")
             layout.addWidget(delete_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         else:
-            layout = QHBoxLayout(header)
-            layout.setContentsMargins(15, 8, 15, 8)
-            layout.setSpacing(12)
-            title = QLabel(title_text)
-            title.setStyleSheet("font-size: 18px; font-weight: 600; color: #fff;")
             layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             layout.addStretch()
-            add_btn = QPushButton("+ Add Product")
-            add_btn.setObjectName("add-button")
-            add_btn.setToolTip("Add a new product")
-            add_btn.clicked.connect(add_callback)
-            add_btn.setStyleSheet("font-size: 15px; font-weight: 500; padding: 8px 24px; border-radius: 6px; background: #1976d2; color: #fff; min-width: 180px;")
             layout.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
-            delete_btn = QPushButton("Delete Selected")
-            delete_btn.setObjectName("destructive-button")
-            delete_btn.setEnabled(False)
-            delete_btn.clicked.connect(delete_callback)
-            delete_btn.setStyleSheet("font-size: 15px; font-weight: 500; padding: 8px 24px; border-radius: 6px; border: 1px solid #d32f2f; color: #d32f2f; background: transparent; min-width: 180px;")
             layout.addWidget(delete_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+
         header.setProperty("delete_button", delete_btn)
         return header
 
@@ -201,16 +190,24 @@ class CompaniesProductsTab(BaseTab):
                 font-size: 16px;
             }}
 
-            #add-button, #menu-button {{
-                background-color: transparent;
-                color: {DARK_THEME['text_secondary']};
-                border: none;
-                font-size: 20px;
-                font-weight: bold;
-                max-width: 30px;
-                border-radius: 6px;
+            #panel-title {{
+                font-size: 18px;
+                font-weight: 600;
+                color: {DARK_THEME['text_primary']};
             }}
-            #add-button:hover, #menu-button:hover {{ color: {DARK_THEME['accent_primary']}; }}
+
+            #add-button {{
+                font-size: 15px;
+                font-weight: 500;
+                padding: 8px 24px;
+                border-radius: 6px;
+                background: {DARK_THEME['accent_primary']};
+                color: {DARK_THEME['text_on_accent']};
+                min-width: 180px;
+            }}
+            #add-button:hover {{
+                background-color: {DARK_THEME['accent_primary_hover']};
+            }}
 
             #destructive-button {{
                 background-color: transparent;
