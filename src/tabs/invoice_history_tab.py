@@ -120,6 +120,8 @@ class InvoiceHistoryTab(BaseTab):
         self.update_pagination_controls()
 
     def create_status_widget(self, status):
+        if status is None:
+            status = "Pending"
         status_label = QLabel(status)
         status_label.setObjectName("status-label")
         status_label.setProperty("status", status.lower())
