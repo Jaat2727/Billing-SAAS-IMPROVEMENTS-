@@ -1,6 +1,6 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QPushButton, QHBoxLayout, QComboBox, QMessageBox, QLabel)
+                             QHeaderView, QPushButton, QHBoxLayout, QComboBox, QMessageBox, QLabel, QDialog, QDialogButtonBox)
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt
 from src.utils.database import SessionLocal
@@ -9,6 +9,28 @@ from src.utils.theme import DARK_THEME
 from src.utils.pdf_service import PdfService
 
 from src.tabs.base_tab import BaseTab
+
+class EditInvoiceDialog(QDialog):
+    def __init__(self, current_status, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Invoice Status")
+
+        self.layout = QVBoxLayout(self)
+
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["Paid", "Pending", "Overdue"])
+        self.status_combo.setCurrentText(current_status)
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+        self.layout.addWidget(QLabel("Select new status:"))
+        self.layout.addWidget(self.status_combo)
+        self.layout.addWidget(self.buttons)
+
+    def get_status(self):
+        return self.status_combo.currentText()
 
 class InvoiceHistoryTab(BaseTab):
     def __init__(self):
@@ -24,21 +46,21 @@ class InvoiceHistoryTab(BaseTab):
         main_layout.setContentsMargins(25, 25, 25, 25)
         main_layout.setSpacing(20)
 
-        # Top controls: sorting, and refresh
+        # Top controls: filtering, and refresh
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
 
-        self.sort_combo = QComboBox()
-        self.sort_combo.setObjectName("sort-combo")
-        self.sort_combo.addItems(["Newest First", "Oldest First", "Paid", "Pending", "Overdue"])
-        self.sort_combo.currentIndexChanged.connect(self.load_invoices)
+        self.filter_combo = QComboBox()
+        self.filter_combo.setObjectName("filter-combo")
+        self.filter_combo.addItems(["All", "Paid", "Pending", "Overdue"])
+        self.filter_combo.currentIndexChanged.connect(self.load_invoices)
 
         refresh_btn = QPushButton("Refresh")
         refresh_btn.setObjectName("header-button")
         refresh_btn.clicked.connect(self.handle_refresh)
 
-        controls_layout.addWidget(QLabel("Sort by:"))
-        controls_layout.addWidget(self.sort_combo)
+        controls_layout.addWidget(QLabel("Filter by:"))
+        controls_layout.addWidget(self.filter_combo)
         controls_layout.addStretch()
         controls_layout.addWidget(refresh_btn)
         main_layout.addLayout(controls_layout)
@@ -48,7 +70,7 @@ class InvoiceHistoryTab(BaseTab):
         self.invoice_table.setColumnCount(6)
         self.invoice_table.setHorizontalHeaderLabels(["Invoice #", "Company", "Date", "Total", "Status", "Actions"])
         self.invoice_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.invoice_table.setColumnWidth(5, 120)
+        self.invoice_table.setColumnWidth(5, 160)
         self.invoice_table.setSortingEnabled(True)
         self.invoice_table.horizontalHeader().sectionClicked.connect(self.handle_header_sort)
         self.invoice_table.setAlternatingRowColors(True)
@@ -75,15 +97,14 @@ class InvoiceHistoryTab(BaseTab):
         self.page_size = 15
 
     def _build_invoice_query(self):
-        sort_option = self.sort_combo.currentText()
+        filter_option = self.filter_combo.currentText()
         query = self.db_session.query(Invoice)
 
-        if sort_option == "Newest First":
-            query = query.order_by(Invoice.date.desc())
-        elif sort_option == "Oldest First":
-            query = query.order_by(Invoice.date.asc())
-        elif sort_option in ["Paid", "Pending", "Overdue"]:
-            query = query.filter(Invoice.payment_status == sort_option).order_by(Invoice.date.desc())
+        if filter_option in ["Paid", "Pending", "Overdue"]:
+            query = query.filter(Invoice.payment_status == filter_option)
+
+        # Default sort order
+        query = query.order_by(Invoice.date.desc())
 
         return query
 
@@ -145,9 +166,24 @@ class InvoiceHistoryTab(BaseTab):
         share_btn.setToolTip("Share Invoice")
         share_btn.clicked.connect(lambda chk, inv=invoice: self.share_invoice(inv))
 
+        edit_btn = QPushButton("✎")
+        edit_btn.setObjectName("action-button")
+        edit_btn.setToolTip("Edit Status")
+        edit_btn.clicked.connect(lambda chk, inv=invoice: self.edit_invoice(inv))
+
         actions_layout.addWidget(download_btn)
         actions_layout.addWidget(share_btn)
+        actions_layout.addWidget(edit_btn)
         return actions_widget
+
+    def edit_invoice(self, invoice):
+        dialog = EditInvoiceDialog(invoice.payment_status or "Pending", self)
+        if dialog.exec():
+            new_status = dialog.get_status()
+            invoice.payment_status = new_status
+            self.db_session.commit()
+            self.load_invoices()
+
 
     def handle_refresh(self):
         self.current_page = 0

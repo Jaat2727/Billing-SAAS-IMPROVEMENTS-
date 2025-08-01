@@ -88,6 +88,15 @@ class CreateInvoiceTab(BaseTab):
         details_layout.addWidget(gst_type_label, 3, 0)
         details_layout.addWidget(self.gst_type_combo, 3, 1)
 
+        # Next Invoice Number
+        invoice_no_label = QLabel("Next Invoice #")
+        invoice_no_label.setObjectName("form-label")
+        self.invoice_number_label = QLabel("Loading...")
+        self.invoice_number_label.setObjectName("invoice-number-label")
+        details_layout.addWidget(invoice_no_label, 0, 2)
+        details_layout.addWidget(self.invoice_number_label, 0, 3)
+
+
         main_layout.addWidget(details_card)
 
         # --- Add Products Section ---
@@ -134,8 +143,12 @@ class CreateInvoiceTab(BaseTab):
         main_layout.addWidget(bottom_card)
 
 
+    def update_next_invoice_number_label(self):
+        self.invoice_number_label.setText(self.invoice_number_service.peek_next_invoice_number())
+
     def load_initial_data(self):
         self.refresh_company_dropdown()
+        self.update_next_invoice_number_label()
         # No need to load states for GST, handled by GST type combo
 
     def refresh_company_dropdown(self, select_last=False):
@@ -354,6 +367,7 @@ class CreateInvoiceTab(BaseTab):
             self.db_session.add(new_item)
 
         self.db_session.commit()
+        self.update_next_invoice_number_label()
         return new_invoice
 
     def apply_styles(self):

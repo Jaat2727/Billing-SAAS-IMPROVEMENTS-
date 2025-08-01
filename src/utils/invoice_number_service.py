@@ -22,3 +22,6 @@ class InvoiceNumberService:
         self.counter['counter'] += 1
         self._save_counter()
         return f"INV-{self.counter['counter']:05d}"
+
+    def peek_next_invoice_number(self):
+        return f"INV-{self.counter['counter'] + 1:05d}"
